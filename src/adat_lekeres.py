@@ -8,8 +8,9 @@ cache_session = requests_cache.CachedSession('.cache', expire_after = 3600)
 retry_session = retry(cache_session, retries = 5, backoff_factor = 0.2)
 openmeteo = openmeteo_requests.Client(session = retry_session)
 
-open_meteo_api = "https://api.open-meteo.com/v1/forecast"
-
+# Ez majd akkor ha össze vetjük a mi elörejelzésünkkel
+# open_meteo_api = "https://api.open-meteo.com/v1/forecast"
+open_meteo_api = "https://archive-api.open-meteo.com/v1/archive"
 geolocator = Nominatim(user_agent="haladoprog_idojaras_projekt")
 
 # felhasználó input
@@ -19,7 +20,9 @@ helyseg_koordinata = geolocator.geocode(v_nev)
 paraméterek = {
     "latitude": helyseg_koordinata.latitude,
     "longitude": helyseg_koordinata.longitude,
-    "hourly": ["temperature_2m", "precipitation"],
+    "start_date": "2024-01-01",
+    "end_date": "2024-01-31",
+    "daily": ["temperature_2m_mean"],
     "timezone": "Europe/Budapest"
 }
 
@@ -29,15 +32,15 @@ responses = openmeteo.weather_api(open_meteo_api, params = paraméterek)
 response = responses[0]
 
 # Adatok kinyerése
-hourly = response.Hourly()
-homerseklet = hourly.Variables(0).ValuesAsNumpy()
-csapadek = hourly.Variables(1).ValuesAsNumpy()
+daily = response.Daily()
+homerseklet = daily.Variables(0).ValuesAsNumpy()
+
 
 # Időbélyegek generálása
 ido_adatok = pd.date_range(
-    start=pd.to_datetime(hourly.Time(), unit="s", utc=True),
-    end=pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True),
-    freq=pd.Timedelta(seconds=hourly.Interval()),
+    start=pd.to_datetime(daily.Time(), unit="s", utc=True),
+    end=pd.to_datetime(daily.TimeEnd(), unit="s", utc=True),
+    freq=pd.Timedelta(seconds=daily.Interval()),
     inclusive="left"
 )
 
@@ -45,11 +48,10 @@ ido_adatok = pd.date_range(
 df = pd.DataFrame({
     "Dátum": ido_adatok,
     "Hőmérséklet (°C)": homerseklet,
-    "Csapadék (mm)": csapadek
 })
 
 
 
 print(f"\nSIKERES LEKÉRÉS! Íme az első 5 óra adatai {v_nev}:")
 print("-" * 60)
-print(df.head())
+print(df.head(30))

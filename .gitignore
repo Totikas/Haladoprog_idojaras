@@ -1,1 +1,6 @@
 venv/
+.venv/
+*.sqlite
+*.sqlite3
+__pycache__/
+.env

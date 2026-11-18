@@ -43,3 +43,12 @@ if __name__ == "__main__":
     teszt = idojaras_lekeres("Budapest", "2024-01-01", "2024-01-05")
     print(teszt)
 """
+
+"""
+A kiirás minta
+
+Index   Dátum                       Hőmérséklet (°C)
+0       2005-01-01 00:00:00+00:00   -3
+1       2005-01-02 00:00:00+00:00   -4
+2       2005-01-03 00:00:00+00:00   -5
+"""

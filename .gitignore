@@ -4,3 +4,6 @@ venv/
 *.sqlite3
 __pycache__/
 .env
+
+/.venv312/
+/.idea/

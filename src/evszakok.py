@@ -1,41 +1,77 @@
 import pandas as pd
 
-from adat_lekeres import idojaras_lekeres
 
-
-def evszakos_atlagok(napi_adatok: pd.DataFrame) -> pd.DataFrame:
+def evszakos_osszesites(napi_adatok: pd.DataFrame) -> pd.DataFrame:
     adatok = napi_adatok.copy()
-
-    # A budapesti éjfél UTC-ben az előző estére eshet.
-    # A legközelebbi éjfélre kerekítve megkapjuk a napi adat dátumát.
     adatok["Dátum"] = adatok["Dátum"].dt.round("D")
+    evszakok = adatok.resample("QS-DEC", on="Dátum")
 
-    # Az évszakok decemberben, márciusban, júniusban és szeptemberben kezdődnek.
-    evszakok = (
-        adatok.resample("QS-DEC", on="Dátum")["Hőmérséklet (°C)"]
-        .agg(atlag="mean", napok="count")
-    )
-
-    # Csak azok az évszakok kerülnek a táblázatba, amelyekhez megvan minden nap.
-    kezdet = evszakok.index
-    kovetkezo_evszak = kezdet + pd.DateOffset(months=3)
-    vart_napok = (kovetkezo_evszak - kezdet).days
-    teljes_evszakok = evszakok.loc[evszakok["napok"] == vart_napok]
-
-    evszaknevek = {12: "Tél", 3: "Tavasz", 6: "Nyár", 9: "Ősz"}
-    kezdet = teljes_evszakok.index
-
-    # A decemberben kezdődő telet a január és február évéhez soroljuk.
-    return pd.DataFrame({
-        "Év": kezdet.year + (kezdet.month == 12),
-        "Évszak": [evszaknevek[honap] for honap in kezdet.month],
-        "Átlaghőmérséklet (°C)": teljes_evszakok["atlag"].round(2).to_numpy(),
+    tabla = pd.DataFrame({
+        "Átlaghőmérséklet (°C)": evszakok["Hőmérséklet (°C)"].mean(),
+        "Összes csapadék (mm)": evszakok["Csapadék (mm)"].sum(min_count=1),
+        "Maximális szélsebesség (km/h)": evszakok["Max. szélsebesség (km/h)"].max(),
     })
 
-if __name__ == "__main__":
-    napi_adatok = idojaras_lekeres("Budapest", "2022-12-01", "2024-11-30")
+    # Az időszak szélén csak a teljes évszakokat vesszük figyelembe.
+    kezdet = tabla.index
+    vart_napok = (kezdet + pd.DateOffset(months=3) - kezdet).days
+    tabla = tabla.loc[evszakok.size() == vart_napok].copy()
 
-    if napi_adatok is None:
-        print("A város nem található.")
-    else:
-        print(evszakos_atlagok(napi_adatok).to_string(index=False))
+    kezdet = tabla.index
+    evszaknevek = {12: "Tél", 3: "Tavasz", 6: "Nyár", 9: "Ősz"}
+
+    # A decemberben kezdődő tél a január és február évéhez tartozik.
+    tabla.insert(0, "Év", kezdet.year + (kezdet.month == 12))
+    tabla.insert(1, "Évszak", kezdet.month.map(evszaknevek))
+
+    return tabla.round(2).reset_index(drop=True)
+
+
+def evszakos_osszehasonlitas(evszakos_tabla: pd.DataFrame) -> pd.DataFrame:
+    if evszakos_tabla["Év"].nunique() < 2:
+        return pd.DataFrame()
+
+    elso_ev = int(evszakos_tabla["Év"].min())
+    utolso_ev = int(evszakos_tabla["Év"].max())
+    kozepso_ev = (elso_ev + utolso_ev) // 2
+
+    korabbi_nev = f"{elso_ev}–{kozepso_ev}"
+    kesobbi_nev = f"{kozepso_ev + 1}–{utolso_ev}"
+
+    mutatok = {
+        "Átlaghőmérséklet (°C)": "Átlaghőmérséklet (°C)",
+        "Összes csapadék (mm)": "Átlagos szezonális csapadék (mm)",
+        "Maximális szélsebesség (km/h)": "Szezonális szélmaximumok átlaga (km/h)",
+    }
+
+    sorrend = ["Tél", "Tavasz", "Nyár", "Ősz"]
+    korabbi_evek = evszakos_tabla["Év"] <= kozepso_ev
+
+    korabbi = (
+        evszakos_tabla.loc[korabbi_evek]
+        .groupby("Évszak")[list(mutatok)]
+        .mean()
+        .reindex(sorrend)
+    )
+    kesobbi = (
+        evszakos_tabla.loc[~korabbi_evek]
+        .groupby("Évszak")[list(mutatok)]
+        .mean()
+        .reindex(sorrend)
+    )
+
+    sorok = []
+    for evszak in sorrend:
+        for oszlop, mutato in mutatok.items():
+            elotte = korabbi.loc[evszak, oszlop]
+            utana = kesobbi.loc[evszak, oszlop]
+
+            sorok.append({
+                "Évszak": evszak,
+                "Mutató": mutato,
+                korabbi_nev: elotte,
+                kesobbi_nev: utana,
+                "Változás": utana - elotte,
+            })
+
+    return pd.DataFrame(sorok).round(2)

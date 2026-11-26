@@ -10,7 +10,7 @@ openmeteo = openmeteo_requests.Client(session = retry_session)
 
 geolocator = Nominatim(user_agent="haladoprog_idojaras_projekt")
 
-# felhasználó input
+#felhasználó input
 def idojaras_lekeres(varos_nev: str, kezdo_datum: str, veg_datum: str):
     hely = geolocator.geocode(varos_nev)
     if not hely:
@@ -21,7 +21,7 @@ def idojaras_lekeres(varos_nev: str, kezdo_datum: str, veg_datum: str):
         "longitude": hely.longitude,
         "start_date": kezdo_datum,
         "end_date": veg_datum,
-        "daily": ["temperature_2m_mean"],
+        "daily": ["temperature_2m_mean", "wind_speed_10m_max", "precipitation_sum"],
         "timezone": "Europe/Budapest"
     }
 
@@ -35,11 +35,13 @@ def idojaras_lekeres(varos_nev: str, kezdo_datum: str, veg_datum: str):
             freq=pd.Timedelta(seconds=daily.Interval()),
             inclusive="left"
         ),
-        "Hőmérséklet (°C)": daily.Variables(0).ValuesAsNumpy()
+        "Hőmérséklet (°C)": daily.Variables(0).ValuesAsNumpy(),
+        "Max. szélsebesség (km/h)": daily.Variables(1).ValuesAsNumpy(),
+        "Csapadék (mm)": daily.Variables(2).ValuesAsNumpy()
     })
 
 """
-if __name__ == "__main__":
+if name == "main":
     teszt = idojaras_lekeres("Budapest", "2024-01-01", "2024-01-05")
     print(teszt)
 """

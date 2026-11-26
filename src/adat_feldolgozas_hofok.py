@@ -10,13 +10,15 @@ def eves_atlagok(varos: str, indu_ev: int = 1940, veg_ev: int = 2025):
         atlag_hofok = ev_adatai["Hőmérséklet (°C)"].mean()
         eredmenyek.append({
             "Év": ev,
-            "Átlaghőmérséklet (°C)": round(atlag_hofok, 2)
+            "Átlaghőmérséklet (°C)": round(atlag_hofok, 2),
+            "Éves max. szélsebesség (km/h)": round(ev_adatai["Max. szélsebesség (km/h)"].max(), 2),
+             "Éves csapadék (mm)": round(ev_adatai["Csapadék (mm)"].sum(min_count=1), 2),
         })
 
     return pd.DataFrame(eredmenyek)
 
 
 """
-if __name__ == "__main__":
+if name == "main":
     print(eves_atlagok("Budapest").to_string(index=False))
 """
